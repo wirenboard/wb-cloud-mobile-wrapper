@@ -45,8 +45,13 @@ EOF
 
 echo "Version bumped: $CURRENT → $NEW_FULL"
 
-# Git commit only version files (no other staged changes captured)
-git commit "$PUBSPEC" "$VERSION_FILE" -m "chore: bump version to $NEW_FULL"
+# Check tag doesn't already exist
+if git rev-parse "v$NEW_VERSION" >/dev/null 2>&1; then
+  echo "Error: tag v$NEW_VERSION already exists"; exit 1
+fi
+
+# Git commit only version files, excluding any other staged changes
+git commit --only "$PUBSPEC" "$VERSION_FILE" -m "chore: bump version to $NEW_FULL"
 git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
 
 echo "Tagged: v$NEW_VERSION"

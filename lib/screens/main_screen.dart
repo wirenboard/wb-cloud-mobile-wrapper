@@ -200,7 +200,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
             if (_showSplash)
-              const _SplashOverlay(),
+              Positioned.fill(child: const _SplashOverlay()),
             if (_speedDialOpen)
               GestureDetector(
                 onTap: _closeDial,
@@ -214,33 +214,30 @@ class _MainScreenState extends State<MainScreen> {
               child: AnimatedOpacity(
                 opacity: _fabDimmed ? 0.25 : 1.0,
                 duration: const Duration(milliseconds: 400),
-                child: GestureDetector(
-                  onTap: _onFabInteraction,
-                  child: _SpeedDial(
-                    isOpen: _speedDialOpen,
-                    onToggle: () {
-                      _onFabInteraction();
-                      setState(() => _speedDialOpen = !_speedDialOpen);
-                    },
-                    onAddBookmark: () {
-                      _onFabInteraction();
-                      _showAddBookmarkDialog();
-                    },
-                    onBookmarks: () {
-                      _onFabInteraction();
-                      _showBookmarks();
-                    },
-                    onHome: () {
-                      _onFabInteraction();
-                      _closeDial();
-                      _controller.loadRequest(Uri.parse(_startUrl));
-                    },
-                    onReload: () {
-                      _onFabInteraction();
-                      _closeDial();
-                      _controller.reload();
-                    },
-                  ),
+                child: _SpeedDial(
+                  isOpen: _speedDialOpen,
+                  onToggle: () {
+                    _onFabInteraction();
+                    setState(() => _speedDialOpen = !_speedDialOpen);
+                  },
+                  onAddBookmark: () {
+                    _onFabInteraction();
+                    _showAddBookmarkDialog();
+                  },
+                  onBookmarks: () {
+                    _onFabInteraction();
+                    _showBookmarks();
+                  },
+                  onHome: () {
+                    _onFabInteraction();
+                    _closeDial();
+                    _controller.loadRequest(Uri.parse(_startUrl));
+                  },
+                  onReload: () {
+                    _onFabInteraction();
+                    _closeDial();
+                    _controller.reload();
+                  },
                 ),
               ),
             ),
