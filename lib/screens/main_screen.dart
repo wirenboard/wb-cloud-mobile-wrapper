@@ -210,7 +210,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             Positioned(
               right: 16,
-              bottom: 32,
+              bottom: 16,
               child: AnimatedOpacity(
                 opacity: _fabDimmed ? 0.25 : 1.0,
                 duration: const Duration(milliseconds: 400),

@@ -5,7 +5,8 @@ Flutter mobile wrapper for [Wiren Board Cloud](https://wirenboard.cloud) — tur
 ## Features
 
 - Full-screen WebView of `wirenboard.cloud` with JavaScript enabled
-- Speed Dial FAB for navigation: add bookmark, bookmarks list, home
+- Speed Dial FAB (bottom-right) for navigation: add bookmark, bookmarks list, reload, home
+- FAB auto-dims to 25% opacity after 3 seconds of inactivity to avoid obscuring content
 - Splash screen on startup showing app version
 - Bookmarks stored locally via `shared_preferences`
 - Navigation restricted to `wirenboard.cloud` domain; external links open in the system browser
