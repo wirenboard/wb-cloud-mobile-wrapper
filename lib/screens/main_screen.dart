@@ -127,17 +127,17 @@ class _MainScreenState extends State<MainScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Добавить закладку'),
+        title: const Text('Add bookmark'),
         content: TextField(
           controller: titleController,
-          decoration: const InputDecoration(labelText: 'Название'),
+          decoration: const InputDecoration(labelText: 'Name'),
           autofocus: true,
           textCapitalization: TextCapitalization.sentences,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Отмена'),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () async {
@@ -151,7 +151,7 @@ class _MainScreenState extends State<MainScreen> {
               ));
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Сохранить'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -286,25 +286,25 @@ class _SpeedDial extends StatelessWidget {
                 children: [
                   _DialItem(
                     icon: Icons.home_outlined,
-                    label: 'Главная',
+                    label: 'Home',
                     onPressed: onHome,
                   ),
                   const SizedBox(height: 10),
                   _DialItem(
                     icon: Icons.refresh,
-                    label: 'Обновить',
+                    label: 'Reload',
                     onPressed: onReload,
                   ),
                   const SizedBox(height: 10),
                   _DialItem(
                     icon: Icons.bookmarks_outlined,
-                    label: 'Закладки',
+                    label: 'Bookmarks',
                     onPressed: onBookmarks,
                   ),
                   const SizedBox(height: 10),
                   _DialItem(
                     icon: Icons.bookmark_add_outlined,
-                    label: 'Добавить закладку',
+                    label: 'Add bookmark',
                     onPressed: onAddBookmark,
                     primary: true,
                   ),
