@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../data/bookmark.dart';
 import '../data/bookmark_repository.dart';
@@ -10,6 +11,11 @@ import '../version.dart';
 const _startUrl = 'https://wirenboard.cloud';
 const _allowedHost = 'wirenboard.cloud';
 const _intentChannel = MethodChannel('com.wirenboard.cloud/intent');
+
+const _fabSize = 56.0;
+const _fabMargin = 16.0;
+const _prefFabX = 'fab_x';
+const _prefFabY = 'fab_y';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -24,6 +30,10 @@ class _MainScreenState extends State<MainScreen> {
   bool _isLoading = true;
   bool _showSplash = true;
   bool _speedDialOpen = false;
+
+  // FAB position; null = not loaded yet (will be set to default on first build)
+  double? _fabX;
+  double? _fabY;
 
   @override
   void initState() {
@@ -54,6 +64,7 @@ class _MainScreenState extends State<MainScreen> {
       if (mounted) setState(() => _showSplash = false);
     });
 
+    _loadFabPosition();
     _checkSharedIntent();
 
     _intentChannel.setMethodCallHandler((call) async {
@@ -62,6 +73,25 @@ class _MainScreenState extends State<MainScreen> {
         if (url != null) _loadUrl(url);
       }
     });
+  }
+
+  Future<void> _loadFabPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    final x = prefs.getDouble(_prefFabX);
+    final y = prefs.getDouble(_prefFabY);
+    if (x != null && y != null && mounted) {
+      setState(() {
+        _fabX = x;
+        _fabY = y;
+      });
+    }
+  }
+
+  Future<void> _saveFabPosition() async {
+    if (_fabX == null || _fabY == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_prefFabX, _fabX!);
+    await prefs.setDouble(_prefFabY, _fabY!);
   }
 
   Future<void> _checkSharedIntent() async {
@@ -153,8 +183,24 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  void _onFabDragUpdate(DragUpdateDetails details, Size screenSize) {
+    _closeDial();
+    setState(() {
+      _fabX = (_fabX! + details.delta.dx)
+          .clamp(0.0, screenSize.width - _fabSize - _fabMargin);
+      _fabY = (_fabY! + details.delta.dy)
+          .clamp(0.0, screenSize.height - _fabSize - _fabMargin);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
+    // Set default position (bottom-right) on first build
+    _fabX ??= screenSize.width - _fabSize - _fabMargin;
+    _fabY ??= screenSize.height - _fabSize - _fabMargin * 4;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -187,21 +233,30 @@ class _MainScreenState extends State<MainScreen> {
                   color: Colors.black.withValues(alpha: 0.3),
                 ),
               ),
+            Positioned(
+              left: _fabX,
+              top: _fabY,
+              child: GestureDetector(
+                onPanUpdate: (d) => _onFabDragUpdate(d, screenSize),
+                onPanEnd: (_) => _saveFabPosition(),
+                child: _SpeedDial(
+                  isOpen: _speedDialOpen,
+                  onToggle: () =>
+                      setState(() => _speedDialOpen = !_speedDialOpen),
+                  onAddBookmark: _showAddBookmarkDialog,
+                  onBookmarks: _showBookmarks,
+                  onHome: () {
+                    _closeDial();
+                    _controller.loadRequest(Uri.parse(_startUrl));
+                  },
+                  onReload: () {
+                    _closeDial();
+                    _controller.reload();
+                  },
+                ),
+              ),
+            ),
           ],
-        ),
-        floatingActionButton: _SpeedDial(
-          isOpen: _speedDialOpen,
-          onToggle: () => setState(() => _speedDialOpen = !_speedDialOpen),
-          onAddBookmark: _showAddBookmarkDialog,
-          onBookmarks: _showBookmarks,
-          onHome: () {
-            _closeDial();
-            _controller.loadRequest(Uri.parse(_startUrl));
-          },
-          onReload: () {
-            _closeDial();
-            _controller.reload();
-          },
         ),
       ),
     );
@@ -275,6 +330,7 @@ class _SpeedDial extends StatelessWidget {
           ),
         ),
         FloatingActionButton(
+          heroTag: 'speed_dial_toggle',
           onPressed: onToggle,
           child: AnimatedRotation(
             turns: isOpen ? 0.125 : 0,
