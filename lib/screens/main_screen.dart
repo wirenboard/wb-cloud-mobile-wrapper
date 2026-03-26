@@ -50,7 +50,7 @@ class _MainScreenState extends State<MainScreen> {
       ))
       ..loadRequest(Uri.parse(_startUrl));
 
-    Timer(const Duration(milliseconds: 500), () {
+    Timer(const Duration(milliseconds: 1000), () {
       if (mounted) setState(() => _showSplash = false);
     });
 
