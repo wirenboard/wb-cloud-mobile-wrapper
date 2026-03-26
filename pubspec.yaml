@@ -1,7 +1,7 @@
 name: wb_cloud
 description: "WirenBoard Cloud mobile wrapper"
 publish_to: 'none'
-version: 1.2.1+4
+version: 1.2.2+5
 
 environment:
   sdk: ^3.6.1
