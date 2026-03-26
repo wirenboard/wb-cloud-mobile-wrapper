@@ -6,12 +6,15 @@
 
 set -e
 
+# Always run from the repo root regardless of where the script is called from
+cd "$(dirname "$0")"
+
 PART=${1:-patch}
 PUBSPEC="pubspec.yaml"
 VERSION_FILE="lib/version.dart"
 
 # Read current version and build number from pubspec.yaml
-CURRENT=$(grep '^version:' "$PUBSPEC" | sed 's/version: //')
+CURRENT=$(grep -m1 '^version:' "$PUBSPEC" | sed 's/^version:[[:space:]]*//')
 VERSION=$(echo "$CURRENT" | cut -d'+' -f1)
 BUILD=$(echo "$CURRENT" | cut -d'+' -f2)
 
@@ -30,8 +33,8 @@ NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 NEW_BUILD=$((BUILD + 1))
 NEW_FULL="$NEW_VERSION+$NEW_BUILD"
 
-# Update pubspec.yaml
-sed -i "s/^version: .*/version: $NEW_FULL/" "$PUBSPEC"
+# Update pubspec.yaml (portable: works on both Linux and macOS)
+sed -i.bak "s/^version: .*/version: $NEW_FULL/" "$PUBSPEC" && rm -f "$PUBSPEC.bak"
 
 # Update lib/version.dart
 cat > "$VERSION_FILE" <<EOF
@@ -42,9 +45,8 @@ EOF
 
 echo "Version bumped: $CURRENT → $NEW_FULL"
 
-# Git commit + tag
-git add "$PUBSPEC" "$VERSION_FILE"
-git commit -m "chore: bump version to $NEW_FULL"
+# Git commit only version files (no other staged changes captured)
+git commit "$PUBSPEC" "$VERSION_FILE" -m "chore: bump version to $NEW_FULL"
 git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
 
 echo "Tagged: v$NEW_VERSION"

@@ -198,6 +198,10 @@ class _MainScreenState extends State<MainScreen> {
             _closeDial();
             _controller.loadRequest(Uri.parse(_startUrl));
           },
+          onReload: () {
+            _closeDial();
+            _controller.reload();
+          },
         ),
       ),
     );
@@ -210,6 +214,7 @@ class _SpeedDial extends StatelessWidget {
   final VoidCallback onAddBookmark;
   final VoidCallback onBookmarks;
   final VoidCallback onHome;
+  final VoidCallback onReload;
 
   const _SpeedDial({
     required this.isOpen,
@@ -217,6 +222,7 @@ class _SpeedDial extends StatelessWidget {
     required this.onAddBookmark,
     required this.onBookmarks,
     required this.onHome,
+    required this.onReload,
   });
 
   @override
@@ -242,6 +248,12 @@ class _SpeedDial extends StatelessWidget {
                     icon: Icons.home_outlined,
                     label: 'Главная',
                     onPressed: onHome,
+                  ),
+                  const SizedBox(height: 10),
+                  _DialItem(
+                    icon: Icons.refresh,
+                    label: 'Обновить',
+                    onPressed: onReload,
                   ),
                   const SizedBox(height: 10),
                   _DialItem(
