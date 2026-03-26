@@ -42,21 +42,53 @@ flutter build ipa --release
 
 ## Versioning
 
-Version is tracked in `pubspec.yaml` and mirrored to `lib/version.dart` (used at runtime to show version on splash screen).
+Version follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH+BUILD`.
 
-To bump the version before a release:
+| Part | When to bump |
+|---|---|
+| `patch` | Bug fixes, minor tweaks |
+| `minor` | New features, UI changes (backward compatible) |
+| `major` | Breaking changes, major redesign |
 
+The build number (`+N`) increments automatically on every bump and maps to `versionCode` on Android and `CFBundleVersion` on iOS.
+
+Version is tracked in `pubspec.yaml` and mirrored to `lib/version.dart` (displayed on the splash screen at startup).
+
+### Releasing a new version
+
+**1. Make sure all changes are committed:**
 ```bash
-./bump_version.sh patch   # 1.0.0 → 1.0.1
-./bump_version.sh minor   # 1.0.1 → 1.1.0
-./bump_version.sh major   # 1.1.0 → 2.0.0
+git status
 ```
 
-The script updates `pubspec.yaml` and `lib/version.dart`, commits both files, and creates a git tag. Push with:
-
+**2. Bump the version:**
 ```bash
+./bump_version.sh patch   # bug fixes      → e.g. 1.1.0 → 1.1.1
+./bump_version.sh minor   # new features   → e.g. 1.1.1 → 1.2.0
+./bump_version.sh major   # breaking/major → e.g. 1.2.0 → 2.0.0
+```
+
+The script:
+- Updates `pubspec.yaml` and `lib/version.dart`
+- Creates a git commit `chore: bump version to X.Y.Z+N`
+- Creates a git tag `vX.Y.Z`
+
+**3. Build and push:**
+```bash
+# Push commits and tags
 git push && git push --tags
+
+# Android
+flutter pub get --offline
+flutter build apk --release
+# or for Play Store:
+flutter build appbundle --release
+
+# iOS
+flutter build ipa --release
 ```
+
+> **Note:** Do not edit `lib/version.dart` manually — it is overwritten by `bump_version.sh`.
 
 ## Project structure
 
