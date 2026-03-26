@@ -53,13 +53,13 @@ class _BookmarksSheetState extends State<BookmarksSheet> {
             ),
           ),
           const SizedBox(height: 12),
-          Text('Закладки', style: Theme.of(context).textTheme.titleMedium),
+          Text('Bookmarks', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           const Divider(height: 1),
           if (_bookmarks.isEmpty)
             const Expanded(
               child: Center(
-                child: Text('Закладок пока нет',
+                child: Text('No bookmarks yet',
                     style: TextStyle(color: Colors.grey)),
               ),
             )
