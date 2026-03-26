@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../data/bookmark.dart';
 import '../data/bookmark_repository.dart';
 import '../widgets/bookmarks_sheet.dart';
+import '../version.dart';
 
 const _startUrl = 'https://wirenboard.cloud';
 const _allowedHost = 'wirenboard.cloud';
@@ -20,7 +22,10 @@ class _MainScreenState extends State<MainScreen> {
   late final WebViewController _controller;
   final _repo = BookmarkRepository();
   bool _isLoading = true;
-  bool _canGoBack = false;
+  bool _showSplash = true;
+  bool _speedDialOpen = false;
+  bool _fabDimmed = false;
+  Timer? _dimTimer;
 
   @override
   void initState() {
@@ -28,20 +33,12 @@ class _MainScreenState extends State<MainScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
-        // #6: проверка mounted перед setState
         onPageStarted: (_) {
           if (mounted) setState(() => _isLoading = true);
         },
         onPageFinished: (_) async {
-          final canGoBack = await _controller.canGoBack();
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-              _canGoBack = canGoBack;
-            });
-          }
+          if (mounted) setState(() => _isLoading = false);
         },
-        // #10: ограничение навигации доменом wirenboard.cloud
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
           if (uri == null) return NavigationDecision.prevent;
@@ -49,22 +46,43 @@ class _MainScreenState extends State<MainScreen> {
           if (host == _allowedHost || host.endsWith('.$_allowedHost')) {
             return NavigationDecision.navigate;
           }
-          // внешние ссылки открываем в системном браузере через platform channel
           _openExternal(request.url);
           return NavigationDecision.prevent;
         },
       ))
       ..loadRequest(Uri.parse(_startUrl));
 
+    Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) setState(() => _showSplash = false);
+    });
+
+    _scheduleDim();
     _checkSharedIntent();
 
-    // #7: слушаем входящие URL когда приложение уже запущено
     _intentChannel.setMethodCallHandler((call) async {
       if (call.method == 'onSharedUrl') {
         final url = call.arguments as String?;
         if (url != null) _loadUrl(url);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _dimTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleDim() {
+    _dimTimer?.cancel();
+    _dimTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _fabDimmed = true);
+    });
+  }
+
+  void _onFabInteraction() {
+    setState(() => _fabDimmed = false);
+    _scheduleDim();
   }
 
   Future<void> _checkSharedIntent() async {
@@ -78,7 +96,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // #2: валидация URL по домену
   void _loadUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
@@ -96,8 +113,10 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // #3: исправлена утечка TextEditingController
-  void _showAddBookmarkDialog() async {
+  void _closeDial() => setState(() => _speedDialOpen = false);
+
+  Future<void> _showAddBookmarkDialog() async {
+    _closeDial();
     final url = await _controller.currentUrl();
     final title = await _controller.getTitle();
     if (url == null || !mounted) return;
@@ -142,6 +161,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showBookmarks() {
+    _closeDial();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -160,89 +180,241 @@ class _MainScreenState extends State<MainScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_speedDialOpen) {
+          _closeDial();
+          return;
+        }
         if (await _controller.canGoBack()) {
           _controller.goBack();
         }
       },
       child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: [
-              if (_isLoading) const LinearProgressIndicator(minHeight: 3),
-              Expanded(child: WebViewWidget(controller: _controller)),
-            ],
-          ),
-        ),
-        bottomNavigationBar: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            border: Border(
-              top: BorderSide(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                width: 0.5,
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Column(
+                children: [
+                  if (_isLoading) const LinearProgressIndicator(minHeight: 3),
+                  Expanded(child: WebViewWidget(controller: _controller)),
+                ],
               ),
             ),
-          ),
-          child: Row(
-            children: [
-              _NavBtn(
-                icon: Icons.arrow_back,
-                onPressed: _canGoBack ? () => _controller.goBack() : null,
+            if (_showSplash)
+              Positioned.fill(child: const _SplashOverlay()),
+            if (_speedDialOpen)
+              GestureDetector(
+                onTap: _closeDial,
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.3),
+                ),
               ),
-              _NavBtn(
-                icon: Icons.refresh,
-                onPressed: () => _controller.reload(),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: AnimatedOpacity(
+                opacity: _fabDimmed ? 0.25 : 1.0,
+                duration: const Duration(milliseconds: 400),
+                child: _SpeedDial(
+                  isOpen: _speedDialOpen,
+                  onToggle: () {
+                    _onFabInteraction();
+                    setState(() => _speedDialOpen = !_speedDialOpen);
+                  },
+                  onAddBookmark: () {
+                    _onFabInteraction();
+                    _showAddBookmarkDialog();
+                  },
+                  onBookmarks: () {
+                    _onFabInteraction();
+                    _showBookmarks();
+                  },
+                  onHome: () {
+                    _onFabInteraction();
+                    _closeDial();
+                    _controller.loadRequest(Uri.parse(_startUrl));
+                  },
+                  onReload: () {
+                    _onFabInteraction();
+                    _closeDial();
+                    _controller.reload();
+                  },
+                ),
               ),
-              _NavBtn(
-                icon: Icons.bookmark_add_outlined,
-                onPressed: _showAddBookmarkDialog,
-                primary: true,
-              ),
-              _NavBtn(
-                icon: Icons.bookmarks_outlined,
-                onPressed: _showBookmarks,
-              ),
-              _NavBtn(
-                icon: Icons.home_outlined,
-                onPressed: () =>
-                    _controller.loadRequest(Uri.parse(_startUrl)),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _NavBtn extends StatelessWidget {
+class _SpeedDial extends StatelessWidget {
+  final bool isOpen;
+  final VoidCallback onToggle;
+  final VoidCallback onAddBookmark;
+  final VoidCallback onBookmarks;
+  final VoidCallback onHome;
+  final VoidCallback onReload;
+
+  const _SpeedDial({
+    required this.isOpen,
+    required this.onToggle,
+    required this.onAddBookmark,
+    required this.onBookmarks,
+    required this.onHome,
+    required this.onReload,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        AnimatedOpacity(
+          opacity: isOpen ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 180),
+          child: AnimatedSlide(
+            offset: isOpen ? Offset.zero : const Offset(0, 0.3),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            child: IgnorePointer(
+              ignoring: !isOpen,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _DialItem(
+                    icon: Icons.home_outlined,
+                    label: 'Главная',
+                    onPressed: onHome,
+                  ),
+                  const SizedBox(height: 10),
+                  _DialItem(
+                    icon: Icons.refresh,
+                    label: 'Обновить',
+                    onPressed: onReload,
+                  ),
+                  const SizedBox(height: 10),
+                  _DialItem(
+                    icon: Icons.bookmarks_outlined,
+                    label: 'Закладки',
+                    onPressed: onBookmarks,
+                  ),
+                  const SizedBox(height: 10),
+                  _DialItem(
+                    icon: Icons.bookmark_add_outlined,
+                    label: 'Добавить закладку',
+                    onPressed: onAddBookmark,
+                    primary: true,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          ),
+        ),
+        FloatingActionButton(
+          heroTag: 'speed_dial_toggle',
+          onPressed: onToggle,
+          child: AnimatedRotation(
+            turns: isOpen ? 0.125 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: const Icon(Icons.menu),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialItem extends StatelessWidget {
   final IconData icon;
-  final VoidCallback? onPressed;
+  final String label;
+  final VoidCallback onPressed;
   final bool primary;
 
-  const _NavBtn({
+  const _DialItem({
     required this.icon,
+    required this.label,
     required this.onPressed,
     this.primary = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = primary
-        ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.onSurface;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        FloatingActionButton.small(
+          heroTag: label,
+          onPressed: onPressed,
+          backgroundColor: primary
+              ? colorScheme.primary
+              : colorScheme.surfaceContainerHigh,
+          foregroundColor: primary
+              ? colorScheme.onPrimary
+              : colorScheme.onSurface,
+          elevation: 2,
+          child: Icon(icon, size: 20),
+        ),
+      ],
+    );
+  }
+}
 
-    return Expanded(
-      child: InkWell(
-        onTap: onPressed,
-        child: Icon(
-          icon,
-          size: 22,
-          // #4: withOpacity → withValues
-          color: onPressed == null
-              ? color.withValues(alpha: 0.3)
-              : color,
+class _SplashOverlay extends StatelessWidget {
+  const _SplashOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.surface,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Wiren Board Cloud',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'v$appVersion',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(),
+          ],
         ),
       ),
     );
