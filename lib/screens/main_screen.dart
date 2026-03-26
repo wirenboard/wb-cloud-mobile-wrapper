@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../data/bookmark.dart';
 import '../data/bookmark_repository.dart';
 import '../widgets/bookmarks_sheet.dart';
+import '../version.dart';
 
 const _startUrl = 'https://wirenboard.cloud';
 const _allowedHost = 'wirenboard.cloud';
@@ -20,6 +22,7 @@ class _MainScreenState extends State<MainScreen> {
   late final WebViewController _controller;
   final _repo = BookmarkRepository();
   bool _isLoading = true;
+  bool _showSplash = true;
   bool _speedDialOpen = false;
 
   @override
@@ -46,6 +49,10 @@ class _MainScreenState extends State<MainScreen> {
         },
       ))
       ..loadRequest(Uri.parse(_startUrl));
+
+    Timer(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _showSplash = false);
+    });
 
     _checkSharedIntent();
 
@@ -171,6 +178,8 @@ class _MainScreenState extends State<MainScreen> {
                 ],
               ),
             ),
+            if (_showSplash)
+              const _SplashOverlay(),
             if (_speedDialOpen)
               GestureDetector(
                 onTap: _closeDial,
@@ -320,6 +329,41 @@ class _DialItem extends StatelessWidget {
           child: Icon(icon, size: 20),
         ),
       ],
+    );
+  }
+}
+
+class _SplashOverlay extends StatelessWidget {
+  const _SplashOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      color: colorScheme.surface,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Wiren Board Cloud',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'v$appVersion',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 32),
+            const CircularProgressIndicator(),
+          ],
+        ),
+      ),
     );
   }
 }
